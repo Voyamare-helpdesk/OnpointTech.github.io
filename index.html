@@ -179,7 +179,7 @@
       <nav class="tab-row">
         <button class="tab-btn active" data-view="submit" onclick="showView('submit')">Submit a ticket</button>
         <button class="tab-btn" data-view="track" onclick="showView('track')">Track my ticket</button>
-        <button class="tab-btn" data-view="board" onclick="showView('board')">All tickets</button>
+        <button class="tab-btn" data-view="board" id="board-tab-btn" style="display:none;" onclick="showView('board')">All tickets</button>
       </nav>
     </div>
   </header>
@@ -202,6 +202,10 @@
               <label for="f-email">Email</label>
               <input type="email" id="f-email" placeholder="jane@example.com">
             </div>
+          </div>
+          <div class="field">
+            <label for="f-phone">Phone number <span style="font-weight:400;color:var(--muted);">(optional, for a faster reply)</span></label>
+            <input type="tel" id="f-phone" placeholder="+230 5000 0000">
           </div>
           <div class="form-row">
             <div class="field">
@@ -277,12 +281,27 @@
 
       <!-- BOARD VIEW -->
       <div class="view" id="view-board">
-        <h1 class="page-title">All tickets</h1>
-        <p class="page-sub">Open to everyone, so anyone can see what's outstanding and help move things along.</p>
-        <div class="filter-row" id="filter-row">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C8B92" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+        <div id="board-locked">
+          <h1 class="page-title">Staff access</h1>
+          <p class="page-sub">Enter the staff passcode to view and manage all tickets.</p>
+          <form class="card" id="staff-form" style="max-width:360px;">
+            <div class="field">
+              <label for="staff-passcode">Passcode</label>
+              <input type="password" id="staff-passcode" placeholder="Enter passcode">
+            </div>
+            <div class="error-text" id="staff-error">That passcode isn't correct.</div>
+            <button type="submit" class="btn btn-primary">Unlock</button>
+          </form>
         </div>
-        <div class="ticket-list" id="board-results"></div>
+
+        <div id="board-unlocked" style="display:none;">
+          <h1 class="page-title">All tickets</h1>
+          <p class="page-sub">Staff view — visible only to people with the passcode.</p>
+          <div class="filter-row" id="filter-row">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C8B92" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+          </div>
+          <div class="ticket-list" id="board-results"></div>
+        </div>
       </div>
 
     </div>
@@ -290,8 +309,8 @@
 
   <footer>
     Anyone can submit or look up a ticket here — no account needed. Save your ticket ID after submitting so you can check back on it.
-    A $20 diagnosis &amp; resolution fee applies once a ticket is marked resolved.
-    <br>Tickets are stored in this browser only — they won't be visible on other devices.
+    A $20 diagnosis &amp; resolution fee applies once a ticket is marked resolved. New tickets are emailed to our support team.
+    <br>Ticket status is stored in this browser only — it won't be visible on other devices.
   </footer>
 </div>
 
@@ -343,6 +362,42 @@
 <script>
   const STORAGE_KEY = 'voyamare-helpdesk-tickets';
   const RESOLUTION_FEE = 20;
+
+  // ------------------------------------------------------------------
+  // EMAIL FORWARDING SETUP (one-time, ~2 minutes):
+  // This is a static HTML file with no server, so it can't send email
+  // on its own. New ticket submissions are forwarded to
+  // voyamarevoyamare@gmail.com via Formspree, a free form-backend service.
+  //
+  // To activate it:
+  //   1. Go to https://formspree.io and sign up free.
+  //   2. Create a new form and set its notification email to
+  //      voyamarevoyamare@gmail.com
+  //   3. Copy the form's endpoint (looks like
+  //      "https://formspree.io/f/xxxxabcd") and paste it below,
+  //      replacing the placeholder.
+  //   4. Formspree will ask you to click a confirmation link sent to
+  //      voyamarevoyamare@gmail.com the first time — do that once.
+  // Until you do this, submissions still save locally in-browser, but
+  // no email will be sent.
+  // ------------------------------------------------------------------
+  const FORMSPREE_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID"; // <-- replace https://formspree.io/f/mbgjokav
+  const FORWARD_TO_EMAIL = "voyamarevoyamare@gmail.com";
+
+  // ------------------------------------------------------------------
+  // STAFF ACCESS TO THE TICKET BOARD:
+  // The "All tickets" view is hidden from the normal navigation and only
+  // reachable at yoursite.html?staff=1, and even then it asks for this
+  // passcode before showing anything.
+  //
+  // IMPORTANT: this is NOT real security. The passcode lives in this
+  // file's own source code, so anyone who views the page source can
+  // find it. This only keeps casual visitors from stumbling into the
+  // ticket queue — it will not stop someone determined to look. Real
+  // access control requires actual staff accounts and a backend.
+  // ------------------------------------------------------------------
+  const STAFF_PASSCODE = "changeme123"; // <-- replace with your own passcode before publishing
+  const STAFF_SESSION_KEY = "voyamare-helpdesk-staff-unlocked";
   const CATEGORIES = ["Hardware", "Software", "Network", "Account & Access", "Other"];
   const PRIORITIES = ["Low", "Medium", "High"];
   const STATUSES = ["Open", "In Progress", "Resolved"];
@@ -407,14 +462,51 @@
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     const btn = document.querySelector('.tab-btn[data-view="' + name + '"]');
     if (btn) btn.classList.add('active');
-    if (name === 'board') renderBoard();
+    if (name === 'board') {
+      if (isStaffUnlocked()) {
+        document.getElementById('board-locked').style.display = 'none';
+        document.getElementById('board-unlocked').style.display = 'block';
+        renderBoard();
+      } else {
+        document.getElementById('board-locked').style.display = 'block';
+        document.getElementById('board-unlocked').style.display = 'none';
+      }
+    }
   }
+
+  function isStaffUnlocked() {
+    return sessionStorage.getItem(STAFF_SESSION_KEY) === 'true';
+  }
+
+  document.getElementById('staff-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const entered = document.getElementById('staff-passcode').value;
+    const errorEl = document.getElementById('staff-error');
+    if (entered === STAFF_PASSCODE) {
+      errorEl.classList.remove('show');
+      sessionStorage.setItem(STAFF_SESSION_KEY, 'true');
+      document.getElementById('staff-passcode').value = '';
+      showView('board');
+    } else {
+      errorEl.classList.add('show');
+    }
+  });
+
+  // Reveal the "All tickets" tab only when visiting ?staff=1, so it
+  // isn't presented to the general public in the normal navigation.
+  (function initStaffTabVisibility() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('staff') === '1') {
+      document.getElementById('board-tab-btn').style.display = '';
+    }
+  })();
 
   // ---------- submit form ----------
   document.getElementById('submit-form').addEventListener('submit', function (e) {
     e.preventDefault();
     const name = document.getElementById('f-name').value.trim();
     const email = document.getElementById('f-email').value.trim();
+    const phone = document.getElementById('f-phone').value.trim();
     const subject = document.getElementById('f-subject').value.trim();
     const description = document.getElementById('f-description').value.trim();
     const category = document.getElementById('f-category').value;
@@ -428,15 +520,65 @@
     errorEl.classList.remove('show');
 
     const ticket = {
-      id: genId(), name, email, subject, description, category, priority,
+      id: genId(), name, email, phone, subject, description, category, priority,
       status: "Open", createdAt: new Date().toISOString(), updates: [], payment: null,
     };
     tickets.unshift(ticket);
     saveTickets();
+    forwardTicketByEmail(ticket);
     lastSubmittedId = ticket.id;
     document.getElementById('confirm-id').textContent = ticket.id;
     showView('confirm');
   });
+
+  function forwardTicketByEmail(t) {
+    if (!FORMSPREE_ENDPOINT || FORMSPREE_ENDPOINT.includes("YOUR_FORM_ID")) {
+      console.warn("Email forwarding not set up yet — see setup instructions near the top of this script.");
+      return;
+    }
+    fetch(FORMSPREE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        _subject: "New IT ticket: " + t.subject + " (" + t.id + ")",
+        to: FORWARD_TO_EMAIL,
+        ticketId: t.id,
+        name: t.name,
+        email: t.email,
+        phone: t.phone || "—",
+        category: t.category,
+        priority: t.priority,
+        subject: t.subject,
+        description: t.description,
+      }),
+    }).catch((err) => {
+      console.error("Could not forward ticket by email:", err);
+    });
+  }
+
+  function forwardPaymentByEmail(t) {
+    if (!FORMSPREE_ENDPOINT || FORMSPREE_ENDPOINT.includes("YOUR_FORM_ID")) {
+      console.warn("Email forwarding not set up yet — see setup instructions near the top of this script.");
+      return;
+    }
+    fetch(FORMSPREE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        _subject: "Payment charged: $" + t.payment.amount.toFixed(2) + " for ticket " + t.id,
+        to: FORWARD_TO_EMAIL,
+        ticketId: t.id,
+        subject: t.subject,
+        name: t.name,
+        email: t.email,
+        amountCharged: "$" + t.payment.amount.toFixed(2),
+        cardLast4: t.payment.cardLast4,
+        chargedAt: t.payment.paidAt,
+      }),
+    }).catch((err) => {
+      console.error("Could not forward payment confirmation by email:", err);
+    });
+  }
 
   function resetSubmitForm() {
     document.getElementById('submit-form').reset();
@@ -515,7 +657,7 @@
         '</div>' +
       '</div>' +
       '<div class="ticket-body">' +
-        '<div class="ticket-meta">' + esc(t.category) + ' &middot; Submitted ' + fmtDate(t.createdAt) + ' &middot; ' + esc(t.name) + '</div>' +
+        '<div class="ticket-meta">' + esc(t.category) + ' &middot; Submitted ' + fmtDate(t.createdAt) + ' &middot; ' + esc(t.name) + (t.phone ? ' &middot; ' + esc(t.phone) : '') + '</div>' +
         '<p class="ticket-description">' + esc(t.description) + '</p>' +
         '<div class="payment-line">' + paymentHtml + '</div>' +
         statusControls +
@@ -583,6 +725,7 @@
         t.updates.push({ text: "Resolution fee of $" + RESOLUTION_FEE + " charged", at: new Date().toISOString() });
         t.updates.push({ text: "Status changed to Resolved", at: new Date().toISOString() });
         saveTickets();
+        forwardPaymentByEmail(t);
         renderBoard();
       }
       btn.disabled = false;
