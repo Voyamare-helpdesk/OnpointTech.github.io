@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Help Desk — IT Support Tickets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1E2A32;
+    --cloud: #F4F6F5;
+    --panel: #FFFFFF;
+    --signal: #2A6F97;
+    --amber: #D98E28;
+    --moss: #3E7C5A;
+    --rose: #B23A48;
+    --line: #DDE3E1;
+    --muted: #7C8B92;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--cloud);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ---------- header ---------- */
+  header { background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
+  .header-inner { max-width: 880px; margin: 0 auto; padding: 16px 24px 0; display: flex; flex-direction: column; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', serif; font-size: 19px; font-weight: 600; }
+  .brand svg { flex-shrink: 0; }
+  .tab-row { display: flex; gap: 22px; }
+  .tab-btn {
+    background: none; border: none; padding: 0 0 12px; font-size: 14.5px; font-weight: 500;
+    cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; font-family: 'Inter', sans-serif;
+  }
+  .tab-btn.active { color: var(--ink); border-bottom-color: var(--signal); }
+
+  /* ---------- main ---------- */
+  main { flex: 1; padding: 40px 24px 64px; }
+  .view-wrap { max-width: 720px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  h1.page-title { font-family: 'Source Serif 4', serif; font-size: 30px; font-weight: 600; }
+  p.page-sub { color: var(--muted); font-size: 15px; margin-top: 8px; margin-bottom: 24px; line-height: 1.5; }
+
+  /* ---------- form card ---------- */
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 28px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px;
+    font-size: 14.5px; font-family: 'Inter', sans-serif; color: var(--ink); outline: none; background: #FBFCFC;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--signal); }
+  .field textarea { min-height: 120px; resize: vertical; }
+  .error-text { color: var(--rose); font-size: 13.5px; margin-bottom: 12px; display: none; }
+  .error-text.show { display: block; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 11px 20px; border: none; border-radius: 4px; font-size: 14.5px; font-weight: 500;
+    cursor: pointer; font-family: 'Inter', sans-serif;
+  }
+  .btn-primary { background: var(--signal); color: #fff; }
+  .btn-primary:disabled { opacity: 0.6; cursor: default; }
+  .btn-secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+
+  /* ---------- confirmation ---------- */
+  .confirm-card {
+    background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 40px 32px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  }
+  .confirm-title { font-family: 'Source Serif 4', serif; font-size: 22px; margin: 14px 0 4px; }
+  .id-box {
+    display: flex; align-items: center; gap: 10px; background: var(--cloud); border: 1px solid var(--line);
+    border-radius: 4px; padding: 10px 16px; margin: 8px 0 22px;
+  }
+  .id-text { font-family: monospace; font-size: 17px; letter-spacing: 0.03em; font-weight: 600; }
+  .icon-btn { background: none; border: none; cursor: pointer; display: flex; color: var(--muted); }
+  .confirm-actions { display: flex; gap: 10px; }
+
+  /* ---------- track / search ---------- */
+  .search-row { display: flex; gap: 10px; margin-bottom: 24px; }
+  .search-input-wrap {
+    flex: 1; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line);
+    border-radius: 4px; padding: 0 12px; background: #fff;
+  }
+  .search-input-wrap input { flex: 1; border: none; outline: none; padding: 11px 0; font-size: 14.5px; font-family: 'Inter', sans-serif; }
+
+  .empty-state {
+    display: flex; align-items: center; gap: 8px; padding: 24px; border: 1px dashed var(--line);
+    border-radius: 6px; color: var(--muted); font-size: 14px;
+  }
+
+  /* ---------- board filters ---------- */
+  .filter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .filter-chip {
+    padding: 6px 14px; border-radius: 14px; border: 1px solid var(--line); background: transparent;
+    color: #5B6870; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif;
+  }
+  .filter-chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  /* ---------- ticket cards ---------- */
+  .ticket-list { display: flex; flex-direction: column; gap: 10px; }
+  .ticket-card { background: #fff; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .ticket-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; cursor: pointer; gap: 12px; }
+  .ticket-top-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .ticket-id-tag { font-family: monospace; font-size: 12.5px; color: var(--muted); flex-shrink: 0; }
+  .ticket-subject { font-size: 14.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ticket-top-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .priority-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 12px; font-size: 12.5px; font-weight: 600; }
+  .chevron { transition: transform 0.15s; }
+  .chevron.open { transform: rotate(180deg); }
+
+  .ticket-body { padding: 0 18px 18px; border-top: 1px solid #EEF1F0; display: none; }
+  .ticket-body.open { display: block; }
+  .ticket-meta { font-size: 12.5px; color: var(--muted); margin-top: 14px; margin-bottom: 10px; }
+  .ticket-description { font-size: 14px; color: #3A464C; line-height: 1.55; }
+
+  .payment-line { margin-top: 12px; font-size: 12.5px; }
+  .payment-paid { display: inline-flex; align-items: center; gap: 6px; color: var(--moss); font-weight: 500; }
+  .payment-pending { display: inline-flex; align-items: center; gap: 6px; color: var(--amber); font-weight: 500; }
+
+  .status-controls { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .status-controls-label { font-size: 12.5px; color: var(--muted); margin-right: 2px; }
+  .status-option-btn {
+    padding: 5px 12px; border-radius: 12px; border: 1px solid var(--line); background: #fff;
+    font-size: 12.5px; font-weight: 600; cursor: pointer; color: #5B6870; font-family: 'Inter', sans-serif;
+  }
+
+  /* ---------- payment modal ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(30,42,50,0.5); display: none; align-items: center;
+    justify-content: center; z-index: 100; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card { background: #fff; border-radius: 8px; padding: 26px; width: 380px; max-width: 100%; box-shadow: 0 20px 50px rgba(30,42,50,0.25); }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .modal-header-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; font-family: 'Source Serif 4', serif; }
+  .modal-ticket-ref { font-size: 12.5px; color: var(--muted); margin-bottom: 16px; }
+  .modal-amount-row {
+    display: flex; justify-content: space-between; align-items: center; background: var(--cloud); border-radius: 4px;
+    padding: 12px 14px; font-size: 14px; font-weight: 500; margin-bottom: 18px;
+  }
+  .modal-amount { display: flex; align-items: center; font-size: 17px; font-weight: 700; color: var(--ink); }
+  .modal-note { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; color: var(--muted); line-height: 1.5; margin: 4px 0 18px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+  /* ---------- footer ---------- */
+  footer { text-align: center; font-size: 12.5px; color: var(--muted); padding: 18px 24px; border-top: 1px solid var(--line); background: #fff; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 1s linear infinite; }
+
+  @media (max-width: 560px) {
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2A6F97" stroke-width="2"><path d="M19.428 15.428a2 2 0 0 0-1.022-.547l-2.387-.477a6 6 0 0 0-3.86.517l-.318.158a6 6 0 0 1-3.86.517L6.05 15.21a2 2 0 0 0-1.806.547M8 14v.5M16 14v.5M12 4v5M9 9h6"/><circle cx="12" cy="19" r="3"/></svg>
+        <span>Help Desk</span>
+      </div>
+      <nav class="tab-row">
+        <button class="tab-btn active" data-view="submit" onclick="showView('submit')">Submit a ticket</button>
+        <button class="tab-btn" data-view="track" onclick="showView('track')">Track my ticket</button>
+        <button class="tab-btn" data-view="board" onclick="showView('board')">All tickets</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="view-wrap">
+
+      <!-- SUBMIT VIEW -->
+      <div class="view active" id="view-submit">
+        <h1 class="page-title">What's going on?</h1>
+        <p class="page-sub">Describe the issue and we'll get you a ticket ID to track it. No account required to submit — a $20 diagnosis &amp; resolution fee is charged only once your ticket is actually resolved.</p>
+
+        <form class="card" id="submit-form">
+          <div class="form-row">
+            <div class="field">
+              <label for="f-name">Your name</label>
+              <input type="text" id="f-name" placeholder="Jane Doe">
+            </div>
+            <div class="field">
+              <label for="f-email">Email</label>
+              <input type="email" id="f-email" placeholder="jane@example.com">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="f-category">Category</label>
+              <select id="f-category">
+                <option>Hardware</option>
+                <option>Software</option>
+                <option>Network</option>
+                <option>Account & Access</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="f-priority">Priority</label>
+              <select id="f-priority">
+                <option>Low</option>
+                <option selected>Medium</option>
+                <option>High</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-subject">Subject</label>
+            <input type="text" id="f-subject" placeholder="Short summary, e.g. Can't connect to VPN">
+          </div>
+          <div class="field">
+            <label for="f-description">Describe the problem</label>
+            <textarea id="f-description" placeholder="What happened, what you expected, and any error messages you saw."></textarea>
+          </div>
+          <div class="error-text" id="submit-error">Please fill in your name, email, subject, and a description.</div>
+          <button type="submit" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+            Submit ticket
+          </button>
+        </form>
+      </div>
+
+      <!-- CONFIRM VIEW -->
+      <div class="view" id="view-confirm">
+        <div class="confirm-card">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3E7C5A" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <h2 class="confirm-title">Ticket submitted</h2>
+          <p class="page-sub">Save this ID — you'll need it to check your ticket's status later.</p>
+          <div class="id-box">
+            <span class="id-text" id="confirm-id">TCK-XXXXX</span>
+            <button class="icon-btn" onclick="copyTicketId()" aria-label="Copy ticket ID" id="copy-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+          <div class="confirm-actions">
+            <button class="btn btn-secondary" onclick="showView('track')">Track this ticket</button>
+            <button class="btn btn-primary" onclick="showView('submit'); resetSubmitForm();">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+              Submit another
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRACK VIEW -->
+      <div class="view" id="view-track">
+        <h1 class="page-title">Track your ticket</h1>
+        <p class="page-sub">Enter the ticket ID you were given, or the email you submitted it with.</p>
+        <form class="search-row" id="track-form">
+          <div class="search-input-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C8B92" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="track-query" placeholder="TCK-XXXXX or your email">
+          </div>
+          <button class="btn btn-primary" type="submit">Search</button>
+        </form>
+        <div id="track-results"></div>
+      </div>
+
+      <!-- BOARD VIEW -->
+      <div class="view" id="view-board">
+        <h1 class="page-title">All tickets</h1>
+        <p class="page-sub">Open to everyone, so anyone can see what's outstanding and help move things along.</p>
+        <div class="filter-row" id="filter-row">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C8B92" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+        </div>
+        <div class="ticket-list" id="board-results"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    Anyone can submit or look up a ticket here — no account needed. Save your ticket ID after submitting so you can check back on it.
+    A $20 diagnosis &amp; resolution fee applies once a ticket is marked resolved.
+    <br>Tickets are stored in this browser only — they won't be visible on other devices.
+  </footer>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div class="modal-overlay" id="payment-modal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-header-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A6F97" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        <span>Resolution fee</span>
+      </div>
+      <button class="icon-btn" onclick="closePaymentModal()" aria-label="Cancel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <p class="modal-ticket-ref" id="modal-ticket-ref">Ticket TCK-XXXXX — Subject</p>
+    <div class="modal-amount-row">
+      <span>Diagnosis &amp; resolution fee</span>
+      <span class="modal-amount">$20.00</span>
+    </div>
+    <form id="payment-form">
+      <div class="field">
+        <label for="p-card">Card number</label>
+        <input type="text" id="p-card" placeholder="4242 4242 4242 4242" inputmode="numeric">
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="p-expiry">Expiry</label>
+          <input type="text" id="p-expiry" placeholder="MM/YY">
+        </div>
+        <div class="field">
+          <label for="p-cvc">CVC</label>
+          <input type="text" id="p-cvc" placeholder="123">
+        </div>
+      </div>
+      <div class="error-text" id="payment-error">Enter a card number, expiry, and CVC to continue.</div>
+      <div class="modal-note">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+        This is a simulated charge for demo purposes — no real payment is processed and no card details are stored.
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="pay-submit-btn">Charge $20 &amp; mark resolved</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'voyamare-helpdesk-tickets';
+  const RESOLUTION_FEE = 20;
+  const CATEGORIES = ["Hardware", "Software", "Network", "Account & Access", "Other"];
+  const PRIORITIES = ["Low", "Medium", "High"];
+  const STATUSES = ["Open", "In Progress", "Resolved"];
+
+  const STATUS_STYLE = {
+    "Open": { color: "#B23A48", bg: "#FBEBEC" },
+    "In Progress": { color: "#D98E28", bg: "#FBF1DF" },
+    "Resolved": { color: "#3E7C5A", bg: "#E9F3EC" },
+  };
+  const PRIORITY_COLOR = { "Low": "#7C8B92", "Medium": "#D98E28", "High": "#B23A48" };
+
+  const icons = {
+    open: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/></svg>',
+    progress: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    resolved: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    card: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+    check: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    chevron: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
+    alert: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7C8B92" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+  };
+  const STATUS_ICON = { "Open": icons.open, "In Progress": icons.progress, "Resolved": icons.resolved };
+
+  let tickets = [];
+  let boardFilter = "All";
+  let pendingPaymentId = null;
+  let lastSubmittedId = null;
+
+  // ---------- persistence ----------
+  function loadTickets() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      tickets = raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      tickets = [];
+    }
+  }
+  function saveTickets() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+    } catch (e) {
+      console.error("Could not save ticket data", e);
+    }
+  }
+
+  function genId() {
+    return "TCK-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+  }
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+  function esc(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : str;
+    return div.innerHTML;
+  }
+
+  // ---------- view switching ----------
+  function showView(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + name).classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector('.tab-btn[data-view="' + name + '"]');
+    if (btn) btn.classList.add('active');
+    if (name === 'board') renderBoard();
+  }
+
+  // ---------- submit form ----------
+  document.getElementById('submit-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const name = document.getElementById('f-name').value.trim();
+    const email = document.getElementById('f-email').value.trim();
+    const subject = document.getElementById('f-subject').value.trim();
+    const description = document.getElementById('f-description').value.trim();
+    const category = document.getElementById('f-category').value;
+    const priority = document.getElementById('f-priority').value;
+    const errorEl = document.getElementById('submit-error');
+
+    if (!name || !email || !subject || !description) {
+      errorEl.classList.add('show');
+      return;
+    }
+    errorEl.classList.remove('show');
+
+    const ticket = {
+      id: genId(), name, email, subject, description, category, priority,
+      status: "Open", createdAt: new Date().toISOString(), updates: [], payment: null,
+    };
+    tickets.unshift(ticket);
+    saveTickets();
+    lastSubmittedId = ticket.id;
+    document.getElementById('confirm-id').textContent = ticket.id;
+    showView('confirm');
+  });
+
+  function resetSubmitForm() {
+    document.getElementById('submit-form').reset();
+    document.getElementById('submit-error').classList.remove('show');
+  }
+
+  function copyTicketId() {
+    navigator.clipboard.writeText(lastSubmittedId).then(() => {
+      const btn = document.getElementById('copy-btn');
+      const original = btn.innerHTML;
+      btn.innerHTML = icons.check;
+      setTimeout(() => { btn.innerHTML = original; }, 1400);
+    }).catch(() => {});
+  }
+
+  // ---------- track ----------
+  document.getElementById('track-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const q = document.getElementById('track-query').value.trim().toLowerCase();
+    const resultsEl = document.getElementById('track-results');
+    if (!q) { resultsEl.innerHTML = ''; return; }
+    const matches = tickets.filter(t => t.id.toLowerCase() === q || t.email.toLowerCase() === q);
+    if (matches.length === 0) {
+      resultsEl.innerHTML = '<div class="empty-state">' + icons.alert + '<span>No ticket found with that ID or email. Double-check it and try again.</span></div>';
+      return;
+    }
+    resultsEl.innerHTML = '<div class="ticket-list">' + matches.map(t => ticketCardHtml(t, false)).join('') + '</div>';
+  });
+
+  // ---------- board ----------
+  function setFilter(status) {
+    boardFilter = status;
+    renderBoard();
+  }
+
+  function renderBoard() {
+    const filterRow = document.getElementById('filter-row');
+    const chips = ["All", ...STATUSES];
+    filterRow.innerHTML = filterRow.querySelector('svg').outerHTML + chips.map(s =>
+      '<button class="filter-chip ' + (boardFilter === s ? 'active' : '') + '" onclick="setFilter(\'' + s + '\')">' + s + '</button>'
+    ).join('');
+
+    const list = boardFilter === "All" ? tickets : tickets.filter(t => t.status === boardFilter);
+    const resultsEl = document.getElementById('board-results');
+    if (list.length === 0) {
+      resultsEl.innerHTML = '<div class="empty-state">' + icons.alert + '<span>No tickets here yet.</span></div>';
+      return;
+    }
+    resultsEl.innerHTML = list.map(t => ticketCardHtml(t, true)).join('');
+  }
+
+  // ---------- ticket card rendering ----------
+  function ticketCardHtml(t, manageable) {
+    const s = STATUS_STYLE[t.status];
+    const paymentHtml = t.payment
+      ? '<span class="payment-paid">' + icons.check + ' $' + t.payment.amount.toFixed(2) + ' resolution fee charged to card ending ' + t.payment.cardLast4 + ' on ' + fmtDate(t.payment.paidAt) + '</span>'
+      : '<span class="payment-pending">' + icons.card + ' $' + RESOLUTION_FEE.toFixed(2) + ' resolution fee due when this ticket is resolved</span>';
+
+    const statusControls = manageable
+      ? '<div class="status-controls"><span class="status-controls-label">Update status:</span>' +
+        STATUSES.map(s2 =>
+          '<button class="status-option-btn" style="' + (t.status === s2 ? 'border-color:' + STATUS_STYLE[s2].color + ';color:' + STATUS_STYLE[s2].color + ';' : '') + '" onclick="requestStatusChange(\'' + t.id + '\', \'' + s2 + '\')">' + s2 + '</button>'
+        ).join('') + '</div>'
+      : '';
+
+    return '<div class="ticket-card">' +
+      '<div class="ticket-top" onclick="toggleTicket(this)">' +
+        '<div class="ticket-top-left">' +
+          '<span class="ticket-id-tag">' + t.id + '</span>' +
+          '<span class="ticket-subject">' + esc(t.subject) + '</span>' +
+        '</div>' +
+        '<div class="ticket-top-right">' +
+          '<span class="priority-dot" style="background:' + PRIORITY_COLOR[t.priority] + '" title="' + t.priority + ' priority"></span>' +
+          '<span class="status-pill" style="color:' + s.color + ';background:' + s.bg + '">' + STATUS_ICON[t.status] + ' ' + t.status + '</span>' +
+          '<span class="chevron">' + icons.chevron + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ticket-body">' +
+        '<div class="ticket-meta">' + esc(t.category) + ' &middot; Submitted ' + fmtDate(t.createdAt) + ' &middot; ' + esc(t.name) + '</div>' +
+        '<p class="ticket-description">' + esc(t.description) + '</p>' +
+        '<div class="payment-line">' + paymentHtml + '</div>' +
+        statusControls +
+      '</div>' +
+    '</div>';
+  }
+
+  function toggleTicket(topEl) {
+    const card = topEl.closest('.ticket-card');
+    card.querySelector('.ticket-body').classList.toggle('open');
+    card.querySelector('.chevron').classList.toggle('open');
+  }
+
+  // ---------- status change / payment flow ----------
+  function requestStatusChange(id, status) {
+    if (status === "Resolved") {
+      openPaymentModal(id);
+      return;
+    }
+    const t = tickets.find(t => t.id === id);
+    if (!t) return;
+    t.status = status;
+    t.updates.push({ text: "Status changed to " + status, at: new Date().toISOString() });
+    saveTickets();
+    renderBoard();
+  }
+
+  function openPaymentModal(id) {
+    const t = tickets.find(t => t.id === id);
+    if (!t) return;
+    pendingPaymentId = id;
+    document.getElementById('modal-ticket-ref').textContent = 'Ticket ' + t.id + ' — ' + t.subject;
+    document.getElementById('payment-form').reset();
+    document.getElementById('payment-error').classList.remove('show');
+    document.getElementById('payment-modal').classList.add('open');
+  }
+  function closePaymentModal() {
+    pendingPaymentId = null;
+    document.getElementById('payment-modal').classList.remove('open');
+  }
+
+  document.getElementById('payment-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const card = document.getElementById('p-card').value.replace(/\D/g, '');
+    const expiry = document.getElementById('p-expiry').value.trim();
+    const cvc = document.getElementById('p-cvc').value.trim();
+    const errorEl = document.getElementById('payment-error');
+
+    if (card.length < 12 || expiry.length < 4 || cvc.length < 3) {
+      errorEl.classList.add('show');
+      return;
+    }
+    errorEl.classList.remove('show');
+
+    const btn = document.getElementById('pay-submit-btn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Charging…';
+
+    setTimeout(() => {
+      const t = tickets.find(t => t.id === pendingPaymentId);
+      if (t) {
+        t.status = "Resolved";
+        t.payment = { amount: RESOLUTION_FEE, paidAt: new Date().toISOString(), cardLast4: card.slice(-4) };
+        t.updates.push({ text: "Resolution fee of $" + RESOLUTION_FEE + " charged", at: new Date().toISOString() });
+        t.updates.push({ text: "Status changed to Resolved", at: new Date().toISOString() });
+        saveTickets();
+        renderBoard();
+      }
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      closePaymentModal();
+    }, 700);
+  });
+
+  // ---------- init ----------
+  loadTickets();
+  renderBoard();
+</script>
+
+</body>
+</html>
