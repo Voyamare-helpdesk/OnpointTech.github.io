@@ -138,6 +138,17 @@
     font-size: 12.5px; font-weight: 600; cursor: pointer; color: #5B6870; font-family: 'Inter', sans-serif;
   }
 
+  .replies-thread { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .reply-bubble { background: var(--cloud); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .reply-meta { font-size: 11.5px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+  .reply-text { font-size: 13.5px; color: #3A464C; line-height: 1.5; white-space: pre-wrap; }
+  .reply-form { margin-top: 14px; }
+  .reply-input {
+    width: 100%; min-height: 64px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px;
+    font-size: 14px; font-family: 'Inter', sans-serif; color: var(--ink); outline: none; background: #FBFCFC; resize: vertical;
+  }
+  .reply-input:focus { border-color: var(--signal); }
+
   /* ---------- payment modal ---------- */
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(30,42,50,0.5); display: none; align-items: center;
@@ -190,7 +201,7 @@
       <!-- SUBMIT VIEW -->
       <div class="view active" id="view-submit">
         <h1 class="page-title">What's going on?</h1>
-        <p class="page-sub">Describe the issue and we'll get you a ticket ID to track it. No account required to submit — a $20 diagnosis &amp; resolution fee is charged only once your ticket is actually resolved.</p>
+        <p class="page-sub">Describe the issue and we'll get you a ticket ID to track it. No account required to submit — a $20 diagnosis fee is charged once we actually begin working on your ticket, not before.</p>
 
         <form class="card" id="submit-form">
           <div class="form-row">
@@ -309,7 +320,7 @@
 
   <footer>
     Anyone can submit or look up a ticket here — no account needed. Save your ticket ID after submitting so you can check back on it.
-    A $20 diagnosis &amp; resolution fee applies once a ticket is marked resolved. New tickets are emailed to our support team.
+    A $20 diagnosis fee applies once work begins on a ticket (In Progress). New tickets are emailed to our support team.
     <br>Ticket status is stored in this browser only — it won't be visible on other devices.
   </footer>
 </div>
@@ -320,7 +331,7 @@
     <div class="modal-header">
       <div class="modal-header-title">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A6F97" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-        <span>Resolution fee</span>
+        <span>Diagnosis fee</span>
       </div>
       <button class="icon-btn" onclick="closePaymentModal()" aria-label="Cancel">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -328,34 +339,19 @@
     </div>
     <p class="modal-ticket-ref" id="modal-ticket-ref">Ticket TCK-XXXXX — Subject</p>
     <div class="modal-amount-row">
-      <span>Diagnosis &amp; resolution fee</span>
+      <span>Diagnosis fee (starts investigation)</span>
       <span class="modal-amount">$20.00</span>
     </div>
-    <form id="payment-form">
-      <div class="field">
-        <label for="p-card">Card number</label>
-        <input type="text" id="p-card" placeholder="4242 4242 4242 4242" inputmode="numeric">
-      </div>
-      <div class="form-row">
-        <div class="field">
-          <label for="p-expiry">Expiry</label>
-          <input type="text" id="p-expiry" placeholder="MM/YY">
-        </div>
-        <div class="field">
-          <label for="p-cvc">CVC</label>
-          <input type="text" id="p-cvc" placeholder="123">
-        </div>
-      </div>
-      <div class="error-text" id="payment-error">Enter a card number, expiry, and CVC to continue.</div>
-      <div class="modal-note">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
-        This is a simulated charge for demo purposes — no real payment is processed and no card details are stored.
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="pay-submit-btn">Charge $20 &amp; mark resolved</button>
-      </div>
-    </form>
+
+    <div id="paypal-button-container" style="min-height:45px;"></div>
+    <div class="error-text" id="payment-error">Something went wrong with the PayPal payment. Please try again.</div>
+    <div class="modal-note">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+      Payment is processed securely through PayPal. Voyamare never sees or stores your card details.
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -381,8 +377,53 @@
   // Until you do this, submissions still save locally in-browser, but
   // no email will be sent.
   // ------------------------------------------------------------------
-  const FORMSPREE_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID"; // <-- replace https://formspree.io/f/mbgjokav
+  const FORMSPREE_ENDPOINT = "https://formspree.io/f/mbgjokav";
   const FORWARD_TO_EMAIL = "voyamarevoyamare@gmail.com";
+
+  // ------------------------------------------------------------------
+  // STAFF ACCESS TO THE TICKET BOARD:
+  // The "All tickets" view is hidden from the normal navigation and only
+  // reachable at yoursite.html?staff=1, and even then it asks for this
+  // passcode before showing anything.
+  //
+  // IMPORTANT: this is NOT real security. The passcode lives in this
+  // file's own source code, so anyone who views the page source can
+  // find it. This only keeps casual visitors from stumbling into the
+  // ticket queue — it will not stop someone determined to look. Real
+  // access control requires actual staff accounts and a backend.
+  // ------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // PAYPAL SETUP:
+  // Diagnosis-fee payments go through a real PayPal button using
+  // PayPal's JS SDK — no backend required for basic checkout.
+  //
+  //   1. Get a Client ID from developer.paypal.com (Apps & Credentials).
+  //      Use a SANDBOX client ID first to test with fake money, then
+  //      switch to your LIVE client ID when you're ready to go live.
+  //   2. Paste it below, replacing the placeholder.
+  //
+  // IMPORTANT: once a real (live) client ID is in place, clicking the
+  // PayPal button processes an actual $20 charge into your PayPal
+  // account — this is no longer simulated. Also note: this capture
+  // happens entirely in the browser with no server-side verification,
+  // which is fine for a small/simple setup but means a technically
+  // sophisticated visitor could tamper with the client-side order
+  // amount. For anything beyond casual use, verifying orders on a real
+  // backend (PayPal's server-side APIs) is the safer long-term setup.
+  // ------------------------------------------------------------------
+  const PAYPAL_CLIENT_ID = "YOUR_PAYPAL_CLIENT_ID"; // <-- replace with your PayPal Client ID
+  let paypalSdkLoaded = false;
+
+  function loadPaypalSdk(callback) {
+    if (window.paypal) { paypalSdkLoaded = true; callback(); return; }
+    const script = document.createElement('script');
+    script.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(PAYPAL_CLIENT_ID) + '&currency=USD';
+    script.onload = function () { paypalSdkLoaded = true; callback(); };
+    script.onerror = function () {
+      console.error("Could not load the PayPal SDK — check that PAYPAL_CLIENT_ID is set correctly.");
+    };
+    document.head.appendChild(script);
+  }
 
   // ------------------------------------------------------------------
   // STAFF ACCESS TO THE TICKET BOARD:
@@ -430,6 +471,21 @@
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       tickets = raw ? JSON.parse(raw) : [];
+      // Migrate older saved data that used a single `payment` object
+      // instead of a `payments` history array.
+      let migrated = false;
+      tickets.forEach(t => {
+        if (!t.payments) {
+          t.payments = t.payment ? [t.payment] : [];
+          delete t.payment;
+          migrated = true;
+        }
+        if (!t.replies) {
+          t.replies = [];
+          migrated = true;
+        }
+      });
+      if (migrated) saveTickets();
     } catch (e) {
       tickets = [];
     }
@@ -521,7 +577,7 @@
 
     const ticket = {
       id: genId(), name, email, phone, subject, description, category, priority,
-      status: "Open", createdAt: new Date().toISOString(), updates: [], payment: null,
+      status: "Open", createdAt: new Date().toISOString(), updates: [], payments: [], replies: [],
     };
     tickets.unshift(ticket);
     saveTickets();
@@ -556,7 +612,7 @@
     });
   }
 
-  function forwardPaymentByEmail(t) {
+  function forwardPaymentByEmail(t, payment) {
     if (!FORMSPREE_ENDPOINT || FORMSPREE_ENDPOINT.includes("YOUR_FORM_ID")) {
       console.warn("Email forwarding not set up yet — see setup instructions near the top of this script.");
       return;
@@ -565,15 +621,16 @@
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({
-        _subject: "Payment charged: $" + t.payment.amount.toFixed(2) + " for ticket " + t.id,
+        _subject: "Diagnosis fee charged: $" + payment.amount.toFixed(2) + " for ticket " + t.id,
         to: FORWARD_TO_EMAIL,
         ticketId: t.id,
         subject: t.subject,
         name: t.name,
         email: t.email,
-        amountCharged: "$" + t.payment.amount.toFixed(2),
-        cardLast4: t.payment.cardLast4,
-        chargedAt: t.payment.paidAt,
+        amountCharged: "$" + payment.amount.toFixed(2),
+        cardLast4: payment.cardLast4,
+        chargedAt: payment.paidAt,
+        totalTimesResolved: t.payments.length,
       }),
     }).catch((err) => {
       console.error("Could not forward payment confirmation by email:", err);
@@ -633,15 +690,41 @@
   // ---------- ticket card rendering ----------
   function ticketCardHtml(t, manageable) {
     const s = STATUS_STYLE[t.status];
-    const paymentHtml = t.payment
-      ? '<span class="payment-paid">' + icons.check + ' $' + t.payment.amount.toFixed(2) + ' resolution fee charged to card ending ' + t.payment.cardLast4 + ' on ' + fmtDate(t.payment.paidAt) + '</span>'
-      : '<span class="payment-pending">' + icons.card + ' $' + RESOLUTION_FEE.toFixed(2) + ' resolution fee due when this ticket is resolved</span>';
+    const payments = t.payments || [];
+    let paymentHtml;
+    if (payments.length === 0) {
+      paymentHtml = '<span class="payment-pending">' + icons.card + ' $' + RESOLUTION_FEE.toFixed(2) + ' diagnosis fee due when diagnosis starts (In Progress)</span>';
+    } else {
+      const rows = payments.map((p, i) =>
+        '<div class="payment-paid" style="display:flex;">' + icons.check + ' $' + p.amount.toFixed(2) +
+        ' charged to card ending ' + p.cardLast4 + ' on ' + fmtDate(p.paidAt) +
+        (payments.length > 1 ? ' (diagnosis #' + (i + 1) + ')' : '') + '</div>'
+      ).join('');
+      const pendingNote = t.status === "Open"
+        ? '<div class="payment-pending" style="margin-top:4px;">' + icons.card + ' Reopened — another $' + RESOLUTION_FEE.toFixed(2) + ' fee applies when diagnosis restarts</div>'
+        : '';
+      paymentHtml = rows + pendingNote;
+    }
 
     const statusControls = manageable
       ? '<div class="status-controls"><span class="status-controls-label">Update status:</span>' +
         STATUSES.map(s2 =>
           '<button class="status-option-btn" style="' + (t.status === s2 ? 'border-color:' + STATUS_STYLE[s2].color + ';color:' + STATUS_STYLE[s2].color + ';' : '') + '" onclick="requestStatusChange(\'' + t.id + '\', \'' + s2 + '\')">' + s2 + '</button>'
         ).join('') + '</div>'
+      : '';
+
+    const replies = t.replies || [];
+    const repliesHtml = replies.length
+      ? '<div class="replies-thread">' + replies.map(r =>
+          '<div class="reply-bubble"><div class="reply-meta">Support &middot; ' + fmtDate(r.at) + '</div><div class="reply-text">' + esc(r.text) + '</div></div>'
+        ).join('') + '</div>'
+      : '';
+
+    const replyForm = manageable
+      ? '<div class="reply-form">' +
+          '<textarea class="reply-input" id="reply-input-' + t.id + '" placeholder="Write a reply to ' + esc(t.name) + '…"></textarea>' +
+          '<button class="btn btn-primary" style="margin-top:8px;" onclick="sendReply(\'' + t.id + '\')">Send reply</button>' +
+        '</div>'
       : '';
 
     return '<div class="ticket-card">' +
@@ -660,6 +743,8 @@
         '<div class="ticket-meta">' + esc(t.category) + ' &middot; Submitted ' + fmtDate(t.createdAt) + ' &middot; ' + esc(t.name) + (t.phone ? ' &middot; ' + esc(t.phone) : '') + '</div>' +
         '<p class="ticket-description">' + esc(t.description) + '</p>' +
         '<div class="payment-line">' + paymentHtml + '</div>' +
+        repliesHtml +
+        replyForm +
         statusControls +
       '</div>' +
     '</div>';
@@ -671,9 +756,51 @@
     card.querySelector('.chevron').classList.toggle('open');
   }
 
+  // ---------- replies ----------
+  function sendReply(ticketId) {
+    const input = document.getElementById('reply-input-' + ticketId);
+    const text = input.value.trim();
+    if (!text) return;
+    const t = tickets.find(t => t.id === ticketId);
+    if (!t) return;
+    if (!t.replies) t.replies = [];
+    const reply = { text, at: new Date().toISOString() };
+    t.replies.push(reply);
+    saveTickets();
+    forwardReplyByEmail(t, reply);
+    renderBoard();
+  }
+
+  function forwardReplyByEmail(t, reply) {
+    if (!FORMSPREE_ENDPOINT || FORMSPREE_ENDPOINT.includes("YOUR_FORM_ID")) {
+      console.warn("Email forwarding not set up yet — see setup instructions near the top of this script.");
+      return;
+    }
+    // NOTE: this sends a copy to your own support inbox for a record —
+    // Formspree's free tier can't forward to the customer's own address
+    // directly. The customer sees the reply by checking the tracking
+    // page, not via a new email landing in their inbox.
+    fetch(FORMSPREE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        _subject: "Reply sent on ticket " + t.id + " (copy for your records)",
+        to: FORWARD_TO_EMAIL,
+        ticketId: t.id,
+        subject: t.subject,
+        customerName: t.name,
+        customerEmail: t.email,
+        replyText: reply.text,
+        sentAt: reply.at,
+      }),
+    }).catch((err) => {
+      console.error("Could not forward reply by email:", err);
+    });
+  }
+
   // ---------- status change / payment flow ----------
   function requestStatusChange(id, status) {
-    if (status === "Resolved") {
+    if (status === "In Progress") {
       openPaymentModal(id);
       return;
     }
@@ -720,12 +847,14 @@
     setTimeout(() => {
       const t = tickets.find(t => t.id === pendingPaymentId);
       if (t) {
-        t.status = "Resolved";
-        t.payment = { amount: RESOLUTION_FEE, paidAt: new Date().toISOString(), cardLast4: card.slice(-4) };
-        t.updates.push({ text: "Resolution fee of $" + RESOLUTION_FEE + " charged", at: new Date().toISOString() });
-        t.updates.push({ text: "Status changed to Resolved", at: new Date().toISOString() });
+        t.status = "In Progress";
+        if (!t.payments) t.payments = [];
+        const payment = { amount: RESOLUTION_FEE, paidAt: new Date().toISOString(), cardLast4: card.slice(-4) };
+        t.payments.push(payment);
+        t.updates.push({ text: "Diagnosis fee of $" + RESOLUTION_FEE + " charged", at: new Date().toISOString() });
+        t.updates.push({ text: "Status changed to In Progress", at: new Date().toISOString() });
         saveTickets();
-        forwardPaymentByEmail(t);
+        forwardPaymentByEmail(t, payment);
         renderBoard();
       }
       btn.disabled = false;
