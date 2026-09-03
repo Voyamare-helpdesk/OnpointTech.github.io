@@ -730,10 +730,17 @@
   }
 
   // ---------- track ----------
+  let lastTrackQuery = '';
+
   document.getElementById('track-form').addEventListener('submit', function (e) {
     e.preventDefault();
-    const q = document.getElementById('track-query').value.trim().toLowerCase();
+    lastTrackQuery = document.getElementById('track-query').value.trim().toLowerCase();
+    renderTrackResults();
+  });
+
+  function renderTrackResults() {
     const resultsEl = document.getElementById('track-results');
+    const q = lastTrackQuery;
     if (!q) { resultsEl.innerHTML = ''; return; }
     const matches = tickets.filter(t => t.id.toLowerCase() === q || t.email.toLowerCase() === q);
     if (matches.length === 0) {
@@ -741,7 +748,15 @@
       return;
     }
     resultsEl.innerHTML = '<div class="ticket-list">' + matches.map(t => ticketCardHtml(t, { showStatusControls: true, showReplyForm: false })).join('') + '</div>';
-  });
+  }
+
+  // Refreshes whichever result lists are currently on screen (board and/or
+  // track), so a status change or payment made from either view shows up
+  // immediately without needing a manual page refresh.
+  function refreshAllViews() {
+    renderBoard();
+    if (lastTrackQuery) renderTrackResults();
+  }
 
   // ---------- board ----------
   function setFilter(status) {
@@ -866,7 +881,7 @@
     t.replies.push(reply);
     saveTickets();
     forwardReplyByEmail(t, reply);
-    renderBoard();
+    refreshAllViews();
   }
 
   function forwardReplyByEmail(t, reply) {
@@ -911,7 +926,7 @@
     t.status = status;
     t.updates.push({ text: "Status changed to " + status, at: new Date().toISOString() });
     saveTickets();
-    renderBoard();
+    refreshAllViews();
   }
 
   let pendingPaymentPurpose = null; // "diagnosis" | "resolution"
@@ -978,7 +993,7 @@
     t.updates.push({ text: "Status changed to " + t.status, at: new Date().toISOString() });
     saveTickets();
     forwardPaymentByEmail(t, payment);
-    renderBoard();
+    refreshAllViews();
     closePaymentModal();
   }
 
