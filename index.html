@@ -276,7 +276,7 @@
         <div class="confirm-card">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3E7C5A" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           <h2 class="confirm-title"><span class="hl-green">Ticket submitted</span></h2>
-          <p class="page-sub">Save this ID — you'll need it to check your ticket's status later.</p>
+          <p class="page-sub">Save this ID — you'll need it to check your ticket's status later. A copy of these details has also been emailed to you.</p>
           <div class="id-box" style="border-color:var(--signal);border-width:1.5px;">
             <span class="id-text hl-blue" id="confirm-id">TCK-XXXXX</span>
             <button class="icon-btn" onclick="copyTicketId()" aria-label="Copy ticket ID" id="copy-btn">
@@ -383,6 +383,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
   const STORAGE_KEY = 'voyamare-helpdesk-tickets';
   const CURRENCY = "Rs";
@@ -410,6 +411,31 @@
   // ------------------------------------------------------------------
   const FORMSPREE_ENDPOINT = "https://formspree.io/f/mbgjokav";
   const FORWARD_TO_EMAIL = "voyamarevoyamare@gmail.com";
+
+  // ------------------------------------------------------------------
+  // EMAIL A COPY TO THE REQUESTER (EmailJS):
+  // Formspree above only notifies your own fixed inbox. To email a
+  // copy of the ticket to whatever address the customer typed in, this
+  // uses EmailJS instead, which can send to any recipient.
+  //
+  //   1. Sign up free at emailjs.com and connect an email service.
+  //   2. Create a template with "To Email" set to {{to_email}}.
+  //   3. Paste your Service ID, Template ID, and Public Key below.
+  // Until these are filled in, ticket submission still works fine —
+  // the requester just won't get an emailed copy.
+  // ------------------------------------------------------------------
+  const EMAILJS_SERVICE_ID = "service_jhbd3h7";
+  const EMAILJS_TEMPLATE_ID = "template_858r5hm";
+  const EMAILJS_PUBLIC_KEY = "YxVj2_jKuyN6yU4Xs";
+  let emailjsInitialized = false;
+
+  function initEmailJs() {
+    if (emailjsInitialized || typeof emailjs === 'undefined') return;
+    if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY === "YOUR_EMAILJS_PUBLIC_KEY") return;
+    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+    emailjsInitialized = true;
+  }
+  initEmailJs();
 
   // ------------------------------------------------------------------
   // STAFF ACCESS TO THE TICKET BOARD:
@@ -610,10 +636,30 @@
     tickets.unshift(ticket);
     saveTickets();
     forwardTicketByEmail(ticket);
+    emailTicketCopyToRequester(ticket);
     lastSubmittedId = ticket.id;
     document.getElementById('confirm-id').textContent = ticket.id;
     showView('confirm');
   });
+
+  function emailTicketCopyToRequester(t) {
+    initEmailJs();
+    if (!emailjsInitialized) {
+      console.warn("EmailJS not set up yet — requester copy not sent. See setup instructions near the top of this script.");
+      return;
+    }
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: t.email,
+      to_name: t.name,
+      ticket_id: t.id,
+      subject: t.subject,
+      category: t.category,
+      priority: t.priority,
+      description: t.description,
+    }).catch(function (err) {
+      console.error("Could not email ticket copy to requester:", err);
+    });
+  }
 
   function forwardTicketByEmail(t) {
     if (!FORMSPREE_ENDPOINT || FORMSPREE_ENDPOINT.includes("YOUR_FORM_ID")) {
@@ -693,7 +739,7 @@
       resultsEl.innerHTML = '<div class="empty-state">' + icons.alert + '<span>No ticket found with that ID or email. Double-check it and try again.</span></div>';
       return;
     }
-    resultsEl.innerHTML = '<div class="ticket-list">' + matches.map(t => ticketCardHtml(t, false)).join('') + '</div>';
+    resultsEl.innerHTML = '<div class="ticket-list">' + matches.map(t => ticketCardHtml(t, { showStatusControls: true, showReplyForm: false })).join('') + '</div>';
   });
 
   // ---------- board ----------
@@ -715,11 +761,14 @@
       resultsEl.innerHTML = '<div class="empty-state">' + icons.alert + '<span>No tickets here yet.</span></div>';
       return;
     }
-    resultsEl.innerHTML = list.map(t => ticketCardHtml(t, true)).join('');
+    resultsEl.innerHTML = list.map(t => ticketCardHtml(t, { showStatusControls: true, showReplyForm: true })).join('');
   }
 
   // ---------- ticket card rendering ----------
-  function ticketCardHtml(t, manageable) {
+  function ticketCardHtml(t, opts) {
+    opts = opts || {};
+    const showStatusControls = !!opts.showStatusControls;
+    const showReplyForm = !!opts.showReplyForm;
     const s = STATUS_STYLE[t.status];
     const payments = t.payments || [];
     let paymentHtml;
@@ -745,7 +794,7 @@
       paymentHtml = rows + pendingNote;
     }
 
-    const statusControls = manageable
+    const statusControls = showStatusControls
       ? '<div class="status-controls"><span class="status-controls-label">Update status:</span>' +
         STATUSES.map(s2 => {
           const isCurrent = t.status === s2;
@@ -768,7 +817,7 @@
         ).join('') + '</div>'
       : '';
 
-    const replyForm = manageable
+    const replyForm = showReplyForm
       ? '<div class="reply-form">' +
           '<textarea class="reply-input" id="reply-input-' + t.id + '" placeholder="Write a reply to ' + esc(t.name) + '…"></textarea>' +
           '<button class="btn btn-primary" style="margin-top:8px;" onclick="sendReply(\'' + t.id + '\')">Send reply</button>' +
