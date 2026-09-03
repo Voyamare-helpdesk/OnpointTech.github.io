@@ -368,9 +368,10 @@
         <span class="id-text">57579480</span>
       </div>
       <div class="field">
-        <label for="juice-ref">Transaction reference (optional)</label>
+        <label for="juice-ref">Transaction reference</label>
         <input type="text" id="juice-ref" placeholder="e.g. Juice confirmation code">
       </div>
+      <div class="error-text" id="juice-ref-error">Enter the Juice transaction reference before confirming.</div>
       <div class="modal-note">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
         This isn't verified automatically — only click confirm once you've actually checked the Juice transfer arrived.
@@ -424,7 +425,7 @@
   // Until these are filled in, ticket submission still works fine —
   // the requester just won't get an emailed copy.
   // ------------------------------------------------------------------
-  const EMAILJS_SERVICE_ID = "service_jhbd3h7";
+  const EMAILJS_SERVICE_ID = "service_54nlgjm";
   const EMAILJS_TEMPLATE_ID = "template_858r5hm";
   const EMAILJS_PUBLIC_KEY = "YxVj2_jKuyN6yU4Xs";
   let emailjsInitialized = false;
@@ -932,6 +933,7 @@
     document.getElementById('modal-amount').textContent = fmtFee(fee);
     document.getElementById('juice-amount-text').textContent = fmtFee(fee);
     document.getElementById('juice-ref').value = '';
+    document.getElementById('juice-ref-error').classList.remove('show');
     document.getElementById('payment-modal').classList.add('open');
   }
   function closePaymentModal() {
@@ -947,12 +949,18 @@
     const t = tickets.find(t => t.id === ticketId);
     if (!t) return;
     const reference = document.getElementById('juice-ref').value.trim();
+    const errorEl = document.getElementById('juice-ref-error');
+    if (!reference) {
+      errorEl.classList.add('show');
+      return;
+    }
+    errorEl.classList.remove('show');
     completePayment(ticketId, purpose, {
       amount: feeForTicket(t, purpose),
       paidAt: new Date().toISOString(),
       method: 'Juice',
       juiceNumber: JUICE_NUMBER,
-      reference: reference || null,
+      reference: reference,
       type: purpose,
     });
   }
