@@ -369,7 +369,7 @@
       </div>
       <div class="field">
         <label for="juice-ref">Transaction reference</label>
-        <input type="text" id="juice-ref" placeholder="e.g. Juice confirmation code">
+        <input type="text" id="juice-ref" placeholder="e.g. AB12CD34 (Juice confirmation code)">
       </div>
       <div class="error-text" id="juice-ref-error">Enter the Juice transaction reference before confirming.</div>
       <div class="modal-note">
@@ -950,7 +950,9 @@
     if (!t) return;
     const reference = document.getElementById('juice-ref').value.trim();
     const errorEl = document.getElementById('juice-ref-error');
-    if (!reference) {
+    const looksValid = /^[A-Za-z0-9\-]{6,}$/.test(reference);
+    if (!looksValid) {
+      errorEl.textContent = "Enter a valid Juice transaction reference (at least 6 letters/numbers).";
       errorEl.classList.add('show');
       return;
     }
