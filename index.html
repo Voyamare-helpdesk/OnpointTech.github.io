@@ -168,6 +168,24 @@
   .modal-note { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; color: var(--muted); line-height: 1.5; margin: 4px 0 18px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
 
+  .reveal-number {
+    filter: blur(6px);
+    transition: filter 0.15s ease;
+    cursor: pointer;
+    user-select: none;
+  }
+  .reveal-number.revealed {
+    filter: none;
+    cursor: text;
+    user-select: text;
+  }
+  .reveal-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 8px;
+    font-weight: 500;
+  }
+
   .hl-blue { color: var(--signal); font-weight: 700; }
   .hl-gold { color: var(--amber); font-weight: 700; }
   .hl-green { color: var(--moss); font-weight: 700; }
@@ -363,8 +381,12 @@
 
     <div id="juice-instructions">
       <p style="font-size:14px;color:var(--ink);margin-bottom:8px;">Send <strong id="juice-amount-text" class="hl-gold">Rs 800</strong> via <strong class="hl-blue">Juice</strong> to:</p>
-      <div class="id-box" style="margin:0 0 16px;">
-        <span class="id-text">57579480</span>
+      <div class="id-box" style="margin:0 0 16px;justify-content:space-between;">
+        <span class="id-text reveal-number" id="juice-number-reveal">57579480</span>
+        <button type="button" class="icon-btn" id="juice-number-toggle-btn" onclick="toggleJuiceNumberReveal()" style="border:1px solid var(--line);border-radius:4px;padding:6px 10px;display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <svg id="juice-eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span id="juice-number-hint" style="font-size:12.5px;">Show number</span>
+        </button>
       </div>
       <div class="field">
         <label for="juice-ref">Transaction reference</label>
@@ -934,6 +956,28 @@
     return purpose === "diagnosis" ? DIAGNOSIS_FEE : RESOLUTION_FEE_BY_PRIORITY[t.priority] || RESOLUTION_FEE_BY_PRIORITY["Medium"];
   }
 
+  function toggleJuiceNumberReveal() {
+    const el = document.getElementById('juice-number-reveal');
+    const hint = document.getElementById('juice-number-hint');
+    const eye = document.getElementById('juice-eye-icon');
+    el.classList.toggle('revealed');
+    const revealed = el.classList.contains('revealed');
+    hint.textContent = revealed ? 'Hide number' : 'Show number';
+    eye.innerHTML = revealed
+      ? '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+      : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>';
+  }
+
+  function resetJuiceNumberReveal() {
+    const el = document.getElementById('juice-number-reveal');
+    const hint = document.getElementById('juice-number-hint');
+    const eye = document.getElementById('juice-eye-icon');
+    if (!el) return;
+    el.classList.remove('revealed');
+    hint.textContent = 'Show number';
+    eye.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>';
+  }
+
   function openPaymentModal(id, purpose) {
     const t = tickets.find(t => t.id === id);
     if (!t) return;
@@ -947,6 +991,7 @@
     document.getElementById('modal-amount').textContent = fmtFee(fee);
     document.getElementById('juice-amount-text').textContent = fmtFee(fee);
     document.getElementById('juice-ref').value = '';
+    resetJuiceNumberReveal();
     document.getElementById('juice-ref-error').classList.remove('show');
     document.getElementById('payment-modal').classList.add('open');
   }
