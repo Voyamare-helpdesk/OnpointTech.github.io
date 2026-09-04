@@ -360,7 +360,7 @@
     Anyone can submit or look up a ticket here — no account needed. Save your ticket ID after submitting so you can check back on it.
     A <span class="hl-gold">Rs 800</span> diagnosis fee applies once work begins (In Progress), and a resolution fee of <span class="hl-gold">Rs 350–1000</span> depending on issue category applies once resolved — both paid via <span class="hl-blue">Juice</span>. New tickets are emailed to our support team.
     <br>This service is only available to <span class="hl-rose">Mauritian citizens and expatriates living in Mauritius</span>.
-    <br>Ticket status is stored in this browser only — it won't be visible on other devices.
+    <br>Ticket status is shared across all visitors and devices.
     <br><a href="#" onclick="openWhatsAppContact(); return false;" style="color:#25D366;text-decoration:none;font-weight:600;">Chat with us on WhatsApp</a>
   </footer>
 </div>
@@ -416,7 +416,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
-  const STORAGE_KEY = 'voyamare-helpdesk-tickets';
   const CURRENCY = "Rs";
   const DIAGNOSIS_FEE = 800;
   const RESOLUTION_FEE_BY_CATEGORY = { "Software": 400, "Hardware": 1000, "Network": 800, "Account & Access": 350, "Other": 1000 };
@@ -560,35 +559,138 @@
   let pendingPaymentId = null;
   let lastSubmittedId = null;
 
-  // ---------- persistence ----------
-  function loadTickets() {
+  // ------------------------------------------------------------------
+  // GITHUB-BACKED STORAGE:
+  // Tickets are read from and written to a tickets.json file in your
+  // GitHub repo, so every visitor shares the same ticket log instead of
+  // each browser having its own separate copy.
+  //
+  // SECURITY WARNING: the token below is embedded in this public page's
+  // source code and is visible to anyone who views it. Use a
+  // fine-grained Personal Access Token that:
+  //   - Is scoped to ONLY this one repository (Voyamare-helpdesk/OnpointTech.github.io)
+  //   - Has ONLY the "Contents: Read and write" permission — nothing else
+  //   - Has a short expiry, and is rotated periodically
+  // Never use a classic PAT with broad "repo" scope here.
+  //
+  // Setup:
+  //   1. Go to github.com/settings/personal-access-tokens/new
+  //   2. Resource owner: Voyamare-helpdesk
+  //   3. Repository access: Only select repositories -> OnpointTech.github.io
+  //   4. Permissions: Repository permissions -> Contents -> Read and write
+  //   5. Generate, copy the token, and paste it below.
+  // ------------------------------------------------------------------
+  const GH_OWNER = "Voyamare-helpdesk";
+  const GH_REPO = "OnpointTech.github.io";
+  const GH_PATH = "tickets.json";
+  const GH_TOKEN = "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";
+  let ghFileSha = null;
+  let ghBranch = "main";
+  let ghBranchDetected = false;
+
+  function ghHeaders() {
+    return {
+      "Authorization": "Bearer " + GH_TOKEN,
+      "Accept": "application/vnd.github+json",
+    };
+  }
+
+  function b64EncodeUnicode(str) {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode('0x' + p1)));
+  }
+  function b64DecodeUnicode(str) {
+    return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+  }
+
+  async function ghDetectBranch() {
+    if (ghBranchDetected) return;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      tickets = raw ? JSON.parse(raw) : [];
+      const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}`, { headers: ghHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.default_branch) ghBranch = data.default_branch;
+      }
+    } catch (e) { /* fall back to "main" */ }
+    ghBranchDetected = true;
+  }
+
+  // ---------- persistence ----------
+  async function loadTickets() {
+    if (!GH_TOKEN || GH_TOKEN === "YOUR_GITHUB_TOKEN") {
+      console.warn("GitHub storage isn't configured yet — see setup instructions near GH_TOKEN. Starting with an empty ticket list.");
+      tickets = [];
+      return;
+    }
+    await ghDetectBranch();
+    try {
+      const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}?ref=${ghBranch}`, { headers: ghHeaders() });
+      if (res.status === 404) {
+        // File doesn't exist yet — it'll be created on first save.
+        tickets = [];
+        ghFileSha = null;
+        return;
+      }
+      if (!res.ok) throw new Error("GitHub load failed: " + res.status);
+      const data = await res.json();
+      ghFileSha = data.sha;
+      const jsonStr = b64DecodeUnicode(data.content.replace(/\n/g, ''));
+      tickets = jsonStr ? JSON.parse(jsonStr) : [];
+
       // Migrate older saved data that used a single `payment` object
       // instead of a `payments` history array.
       let migrated = false;
       tickets.forEach(t => {
-        if (!t.payments) {
-          t.payments = t.payment ? [t.payment] : [];
-          delete t.payment;
-          migrated = true;
-        }
-        if (!t.replies) {
-          t.replies = [];
-          migrated = true;
-        }
+        if (!t.payments) { t.payments = t.payment ? [t.payment] : []; delete t.payment; migrated = true; }
+        if (!t.replies) { t.replies = []; migrated = true; }
       });
-      if (migrated) saveTickets();
+      if (migrated) await saveTickets();
     } catch (e) {
-      tickets = [];
+      console.error("Could not load tickets from GitHub:", e);
+      tickets = tickets || [];
     }
   }
-  function saveTickets() {
+
+  async function saveTickets() {
+    if (!GH_TOKEN || GH_TOKEN === "YOUR_GITHUB_TOKEN") {
+      console.warn("GitHub storage isn't configured — this change was not saved anywhere.");
+      return;
+    }
+    const body = {
+      message: "Update tickets.json (" + new Date().toISOString() + ")",
+      content: b64EncodeUnicode(JSON.stringify(tickets, null, 2)),
+      branch: ghBranch,
+    };
+    if (ghFileSha) body.sha = ghFileSha;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+      let res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`, {
+        method: "PUT",
+        headers: Object.assign({ "Content-Type": "application/json" }, ghHeaders()),
+        body: JSON.stringify(body),
+      });
+      if (res.status === 409) {
+        // Someone else saved in the meantime — refetch the current sha
+        // and retry once. Note: this is a simple "last write wins"
+        // retry, not real conflict merging, so a rapid double-edit from
+        // two people at once could still overwrite one of them.
+        const latest = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}?ref=${ghBranch}`, { headers: ghHeaders() });
+        if (latest.ok) {
+          const latestData = await latest.json();
+          body.sha = latestData.sha;
+          res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`, {
+            method: "PUT",
+            headers: Object.assign({ "Content-Type": "application/json" }, ghHeaders()),
+            body: JSON.stringify(body),
+          });
+        }
+      }
+      if (!res.ok) {
+        console.error("GitHub save failed:", res.status, await res.text());
+        return;
+      }
+      const data = await res.json();
+      ghFileSha = data.content.sha;
     } catch (e) {
-      console.error("Could not save ticket data", e);
+      console.error("Could not save tickets to GitHub:", e);
     }
   }
 
@@ -1098,8 +1200,17 @@
   }
 
   // ---------- init ----------
-  loadTickets();
-  renderBoard();
+  (async function init() {
+    await loadTickets();
+    renderBoard();
+    // Periodically refetch from GitHub so different visitors/devices see
+    // each other's changes without needing a manual refresh. This is a
+    // simple polling approach, not real-time sync.
+    setInterval(async () => {
+      await loadTickets();
+      refreshAllViews();
+    }, 20000);
+  })();
 </script>
 
 </body>
