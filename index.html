@@ -231,7 +231,7 @@
       <!-- SUBMIT VIEW -->
       <div class="view active" id="view-submit">
         <h1 class="page-title">What's going on?</h1>
-        <p class="page-sub">Describe the issue and we'll get you a ticket ID to track it. A diagnosis fee of <span class="hl-gold">Rs 800</span> applies once we begin working on your ticket, and a resolution fee of up to <span class="hl-gold">Rs 1500</span> (depending on criticality) applies once it's fixed. Both are paid via <span class="hl-blue">Juice</span>.</p>
+        <p class="page-sub">Describe the issue and we'll get you a ticket ID to track it. A diagnosis fee of <span class="hl-gold">Rs 800</span> applies once we begin working on your ticket, and a resolution fee of <span class="hl-gold">Rs 300–1000</span> (depending on criticality) applies once it's fixed. Both are paid via <span class="hl-blue">Juice</span>.</p>
         <div class="modal-note" style="margin-bottom:24px;background:var(--cloud);border:1px solid var(--line);border-radius:6px;padding:12px 14px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--rose)" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           This service is only available to <span class="hl-rose">Mauritian citizens and expatriates living in Mauritius</span>.
@@ -313,7 +313,7 @@
       <!-- TRACK VIEW -->
       <div class="view" id="view-track">
         <h1 class="page-title">Track your ticket</h1>
-        <p class="page-sub">Enter the ticket ID you were given, or the email you submitted it with.</p>
+        <p class="page-sub">Enter the ticket ID you were given, or the email you submitted it with. A diagnosis fee of <span class="hl-gold">Rs 800</span> applies once we begin working on your ticket, and a resolution fee of <span class="hl-gold">Rs 300–1000</span> (depending on criticality) applies once it's fixed. Both are paid via <span class="hl-blue">Juice</span>.</p>
         <form class="search-row" id="track-form">
           <div class="search-input-wrap">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C8B92" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -354,7 +354,7 @@
 
   <footer>
     Anyone can submit or look up a ticket here — no account needed. Save your ticket ID after submitting so you can check back on it.
-    A <span class="hl-gold">Rs 800</span> diagnosis fee applies once work begins (In Progress), and a resolution fee of <span class="hl-gold">Rs 800–1500</span> depending on criticality applies once resolved — both paid via Juice to <span class="hl-blue">57579480</span>. New tickets are emailed to our support team.
+    A <span class="hl-gold">Rs 800</span> diagnosis fee applies once work begins (In Progress), and a resolution fee of <span class="hl-gold">Rs 300–1000</span> depending on criticality applies once resolved — both paid via <span class="hl-blue">Juice</span>. New tickets are emailed to our support team.
     <br>This service is only available to <span class="hl-rose">Mauritian citizens and expatriates living in Mauritius</span>.
     <br>Ticket status is stored in this browser only — it won't be visible on other devices.
   </footer>
@@ -389,7 +389,7 @@
       </div>
       <div class="field">
         <label for="juice-ref">Transaction reference</label>
-        <input type="text" id="juice-ref" placeholder="e.g. AB12CD34 (Juice confirmation code)">
+        <input type="text" id="juice-ref" placeholder="e.g. AB12CD34EF56 (12-character Juice code)">
       </div>
       <div class="error-text" id="juice-ref-error">Enter the Juice transaction reference before confirming.</div>
       <div class="modal-note">
@@ -409,7 +409,7 @@
   const STORAGE_KEY = 'voyamare-helpdesk-tickets';
   const CURRENCY = "Rs";
   const DIAGNOSIS_FEE = 800;
-  const RESOLUTION_FEE_BY_PRIORITY = { "Low": 800, "Medium": 1200, "High": 1500 };
+  const RESOLUTION_FEE_BY_PRIORITY = { "Low": 300, "Medium": 650, "High": 1000 };
   function fmtFee(amount) { return CURRENCY + " " + amount.toLocaleString(); }
 
   // ------------------------------------------------------------------
@@ -1008,9 +1008,9 @@
     if (!t) return;
     const reference = document.getElementById('juice-ref').value.trim();
     const errorEl = document.getElementById('juice-ref-error');
-    const looksValid = /^[A-Za-z0-9\-]{6,}$/.test(reference);
+    const looksValid = /^[A-Za-z0-9\-]{12}$/.test(reference);
     if (!looksValid) {
-      errorEl.textContent = "Enter a valid Juice transaction reference (at least 6 letters/numbers).";
+      errorEl.textContent = "Enter a valid 12-character Juice transaction reference.";
       errorEl.classList.add('show');
       return;
     }
