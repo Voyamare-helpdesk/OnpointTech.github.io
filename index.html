@@ -560,80 +560,31 @@
   let lastSubmittedId = null;
 
   // ------------------------------------------------------------------
-  // GITHUB-BACKED STORAGE:
-  // Tickets are read from and written to a tickets.json file in your
-  // GitHub repo, so every visitor shares the same ticket log instead of
-  // each browser having its own separate copy.
+  // GOOGLE SHEETS-BACKED STORAGE (via Apps Script Web App):
+  // Tickets are read from and written to a Google Sheet owned by
+  // voyamarevoyamare@gmail.com, through an Apps Script Web App acting as
+  // a simple backend. Every visitor shares the same ticket log — no
+  // visitor needs to sign into Google, since the script runs under your
+  // account's authorization, not theirs.
   //
-  // SECURITY WARNING: the token below is embedded in this public page's
-  // source code and is visible to anyone who views it. Use a
-  // fine-grained Personal Access Token that:
-  //   - Is scoped to ONLY this one repository (Voyamare-helpdesk/OnpointTech.github.io)
-  //   - Has ONLY the "Contents: Read and write" permission — nothing else
-  //   - Has a short expiry, and is rotated periodically
-  // Never use a classic PAT with broad "repo" scope here.
-  //
-  // Setup:
-  //   1. Go to github.com/settings/personal-access-tokens/new
-  //   2. Resource owner: Voyamare-helpdesk
-  //   3. Repository access: Only select repositories -> OnpointTech.github.io
-  //   4. Permissions: Repository permissions -> Contents -> Read and write
-  //   5. Generate, copy the token, and paste it below.
+  // NOTE: the Web App URL below is not secret — anyone who has it can
+  // read or overwrite ticket data through it, similar to the earlier
+  // GitHub token. Don't post it publicly, and redeploy (which changes
+  // the URL) if it's ever misused.
   // ------------------------------------------------------------------
-  const GH_OWNER = "Voyamare-helpdesk";
-  const GH_REPO = "OnpointTech.github.io";
-  const GH_PATH = "tickets.json";
-  const GH_TOKEN = "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";
-  let ghFileSha = null;
-  let ghBranch = "main";
-  let ghBranchDetected = false;
-
-  function ghHeaders() {
-    return {
-      "Authorization": "Bearer " + GH_TOKEN,
-      "Accept": "application/vnd.github+json",
-    };
-  }
-
-  function b64EncodeUnicode(str) {
-    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode('0x' + p1)));
-  }
-  function b64DecodeUnicode(str) {
-    return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-  }
-
-  async function ghDetectBranch() {
-    if (ghBranchDetected) return;
-    try {
-      const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}`, { headers: ghHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.default_branch) ghBranch = data.default_branch;
-      }
-    } catch (e) { /* fall back to "main" */ }
-    ghBranchDetected = true;
-  }
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxToDNZJDboO-0a3OavrAYo3LgdwkS2SnIFiyOD3T_7Ni7-w0u9MAIUrXgTDn_i9s5A/exec";
 
   // ---------- persistence ----------
   async function loadTickets() {
-    if (!GH_TOKEN || GH_TOKEN === "YOUR_GITHUB_TOKEN") {
-      console.warn("GitHub storage isn't configured yet — see setup instructions near GH_TOKEN. Starting with an empty ticket list.");
+    if (!APPS_SCRIPT_URL) {
+      console.warn("Google Sheets storage isn't configured yet. Starting with an empty ticket list.");
       tickets = [];
       return;
     }
-    await ghDetectBranch();
     try {
-      const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}?ref=${ghBranch}`, { headers: ghHeaders() });
-      if (res.status === 404) {
-        // File doesn't exist yet — it'll be created on first save.
-        tickets = [];
-        ghFileSha = null;
-        return;
-      }
-      if (!res.ok) throw new Error("GitHub load failed: " + res.status);
-      const data = await res.json();
-      ghFileSha = data.sha;
-      const jsonStr = b64DecodeUnicode(data.content.replace(/\n/g, ''));
+      const res = await fetch(APPS_SCRIPT_URL, { method: "GET" });
+      if (!res.ok) throw new Error("Sheet load failed: " + res.status);
+      const jsonStr = await res.text();
       tickets = jsonStr ? JSON.parse(jsonStr) : [];
 
       // Migrate older saved data that used a single `payment` object
@@ -645,52 +596,30 @@
       });
       if (migrated) await saveTickets();
     } catch (e) {
-      console.error("Could not load tickets from GitHub:", e);
+      console.error("Could not load tickets from Google Sheet:", e);
       tickets = tickets || [];
     }
   }
 
   async function saveTickets() {
-    if (!GH_TOKEN || GH_TOKEN === "YOUR_GITHUB_TOKEN") {
-      console.warn("GitHub storage isn't configured — this change was not saved anywhere.");
+    if (!APPS_SCRIPT_URL) {
+      console.warn("Google Sheets storage isn't configured — this change was not saved anywhere.");
       return;
     }
-    const body = {
-      message: "Update tickets.json (" + new Date().toISOString() + ")",
-      content: b64EncodeUnicode(JSON.stringify(tickets, null, 2)),
-      branch: ghBranch,
-    };
-    if (ghFileSha) body.sha = ghFileSha;
     try {
-      let res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`, {
-        method: "PUT",
-        headers: Object.assign({ "Content-Type": "application/json" }, ghHeaders()),
-        body: JSON.stringify(body),
+      // Content-Type is deliberately text/plain to avoid a CORS
+      // preflight request, which Apps Script Web Apps don't handle;
+      // the script itself still parses the body as JSON.
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(tickets),
       });
-      if (res.status === 409) {
-        // Someone else saved in the meantime — refetch the current sha
-        // and retry once. Note: this is a simple "last write wins"
-        // retry, not real conflict merging, so a rapid double-edit from
-        // two people at once could still overwrite one of them.
-        const latest = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}?ref=${ghBranch}`, { headers: ghHeaders() });
-        if (latest.ok) {
-          const latestData = await latest.json();
-          body.sha = latestData.sha;
-          res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`, {
-            method: "PUT",
-            headers: Object.assign({ "Content-Type": "application/json" }, ghHeaders()),
-            body: JSON.stringify(body),
-          });
-        }
-      }
       if (!res.ok) {
-        console.error("GitHub save failed:", res.status, await res.text());
-        return;
+        console.error("Google Sheet save failed:", res.status, await res.text());
       }
-      const data = await res.json();
-      ghFileSha = data.content.sha;
     } catch (e) {
-      console.error("Could not save tickets to GitHub:", e);
+      console.error("Could not save tickets to Google Sheet:", e);
     }
   }
 
