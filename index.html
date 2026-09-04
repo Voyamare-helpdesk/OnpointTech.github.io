@@ -231,7 +231,7 @@
       <!-- SUBMIT VIEW -->
       <div class="view active" id="view-submit">
         <h1 class="page-title">What's going on?</h1>
-        <p class="page-sub">Describe the issue and we'll get you a ticket ID to track it. A diagnosis fee of <span class="hl-gold">Rs 800</span> applies once we begin working on your ticket, and a resolution fee of <span class="hl-gold">Rs 300–1000</span> (depending on criticality) applies once it's fixed. Both are paid via <span class="hl-blue">Juice</span>.</p>
+        <p class="page-sub">Describe the issue and we'll get you a ticket ID to track it. A diagnosis fee of <span class="hl-gold">Rs 800</span> applies once we begin working on your ticket, and a resolution fee of <span class="hl-gold">Rs 350–1000</span> (depending on issue category) applies once it's fixed. Both are paid via <span class="hl-blue">Juice</span>.</p>
         <div class="modal-note" style="margin-bottom:24px;background:var(--cloud);border:1px solid var(--line);border-radius:6px;padding:12px 14px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--rose)" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           This service is only available to <span class="hl-rose">Mauritian citizens and expatriates living in Mauritius</span>.
@@ -317,7 +317,7 @@
       <!-- TRACK VIEW -->
       <div class="view" id="view-track">
         <h1 class="page-title">Track your ticket</h1>
-        <p class="page-sub">Enter the ticket ID you were given, or the email you submitted it with. A diagnosis fee of <span class="hl-gold">Rs 800</span> applies once we begin working on your ticket, and a resolution fee of <span class="hl-gold">Rs 300–1000</span> (depending on criticality) applies once it's fixed. Both are paid via <span class="hl-blue">Juice</span>.</p>
+        <p class="page-sub">Enter the ticket ID you were given, or the email you submitted it with. A diagnosis fee of <span class="hl-gold">Rs 800</span> applies once we begin working on your ticket, and a resolution fee of <span class="hl-gold">Rs 350–1000</span> (depending on issue category) applies once it's fixed. Both are paid via <span class="hl-blue">Juice</span>.</p>
         <form class="search-row" id="track-form">
           <div class="search-input-wrap">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C8B92" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -358,7 +358,7 @@
 
   <footer>
     Anyone can submit or look up a ticket here — no account needed. Save your ticket ID after submitting so you can check back on it.
-    A <span class="hl-gold">Rs 800</span> diagnosis fee applies once work begins (In Progress), and a resolution fee of <span class="hl-gold">Rs 300–1000</span> depending on criticality applies once resolved — both paid via <span class="hl-blue">Juice</span>. New tickets are emailed to our support team.
+    A <span class="hl-gold">Rs 800</span> diagnosis fee applies once work begins (In Progress), and a resolution fee of <span class="hl-gold">Rs 350–1000</span> depending on issue category applies once resolved — both paid via <span class="hl-blue">Juice</span>. New tickets are emailed to our support team.
     <br>This service is only available to <span class="hl-rose">Mauritian citizens and expatriates living in Mauritius</span>.
     <br>Ticket status is stored in this browser only — it won't be visible on other devices.
     <br><a href="#" onclick="openWhatsAppContact(); return false;" style="color:#25D366;text-decoration:none;font-weight:600;">Chat with us on WhatsApp</a>
@@ -419,7 +419,7 @@
   const STORAGE_KEY = 'voyamare-helpdesk-tickets';
   const CURRENCY = "Rs";
   const DIAGNOSIS_FEE = 800;
-  const RESOLUTION_FEE_BY_PRIORITY = { "Low": 300, "Medium": 650, "High": 1000 };
+  const RESOLUTION_FEE_BY_CATEGORY = { "Software": 400, "Hardware": 1000, "Network": 800, "Account & Access": 350, "Other": 1000 };
   function fmtFee(amount) { return CURRENCY + " " + amount.toLocaleString(); }
 
   // ------------------------------------------------------------------
@@ -865,7 +865,7 @@
     const s = STATUS_STYLE[t.status];
     const payments = t.payments || [];
     let paymentHtml;
-    const resolutionFeeForTicket = RESOLUTION_FEE_BY_PRIORITY[t.priority] || RESOLUTION_FEE_BY_PRIORITY["Medium"];
+    const resolutionFeeForTicket = RESOLUTION_FEE_BY_CATEGORY[t.category] || RESOLUTION_FEE_BY_CATEGORY["Other"];
     const hasDiagnosisPaid = payments.some(p => p.type === "diagnosis");
     const hasResolutionPaid = t.status === "Resolved" && payments.some(p => p.type === "resolution");
 
@@ -882,7 +882,7 @@
       if (t.status === "Open" && hasDiagnosisPaid) {
         pendingNote = '<div class="payment-pending" style="margin-top:4px;">' + icons.card + ' Reopened — another ' + fmtFee(DIAGNOSIS_FEE) + ' diagnosis fee applies when diagnosis restarts</div>';
       } else if (t.status === "In Progress" && !hasResolutionPaid) {
-        pendingNote = '<div class="payment-pending" style="margin-top:4px;">' + icons.card + ' ' + fmtFee(resolutionFeeForTicket) + ' resolution fee due via Juice when marked Resolved (' + t.priority + ' priority)</div>';
+        pendingNote = '<div class="payment-pending" style="margin-top:4px;">' + icons.card + ' ' + fmtFee(resolutionFeeForTicket) + ' resolution fee due via Juice when marked Resolved (' + esc(t.category) + ')</div>';
       }
       paymentHtml = rows + pendingNote;
     }
@@ -1009,7 +1009,7 @@
   let pendingPaymentPurpose = null; // "diagnosis" | "resolution"
 
   function feeForTicket(t, purpose) {
-    return purpose === "diagnosis" ? DIAGNOSIS_FEE : RESOLUTION_FEE_BY_PRIORITY[t.priority] || RESOLUTION_FEE_BY_PRIORITY["Medium"];
+    return purpose === "diagnosis" ? DIAGNOSIS_FEE : RESOLUTION_FEE_BY_CATEGORY[t.category] || RESOLUTION_FEE_BY_CATEGORY["Other"];
   }
 
   function toggleJuiceNumberReveal() {
@@ -1040,7 +1040,7 @@
     pendingPaymentId = id;
     pendingPaymentPurpose = purpose;
     const fee = feeForTicket(t, purpose);
-    const label = purpose === "diagnosis" ? "Diagnosis fee" : "Resolution fee (" + t.priority + " priority)";
+    const label = purpose === "diagnosis" ? "Diagnosis fee" : "Resolution fee (" + t.category + ")";
     document.getElementById('modal-title').textContent = label;
     document.getElementById('modal-ticket-ref').textContent = 'Ticket ' + t.id + ' — ' + t.subject;
     document.getElementById('modal-amount-label').textContent = label;
